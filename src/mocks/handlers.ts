@@ -1,60 +1,137 @@
-// src/mocks/handlers.ts
 import { http, HttpResponse } from "msw";
 import {
-    shoppingLists,
-    createShoppingList,
-    deleteShoppingList,
-    addItem,
-    toggleItemDone
-} from "./mockData";
+    mockLists,
+    type ShoppingListModel,
+    type ShoppingListItemModel,
+} from "../components/mock-data";
 
-const API_BASE = "/api";
+let lists: ShoppingListModel[] = mockLists.map((l) => ({ ...l }));
+
+
+function findList(id: string): ShoppingListModel | undefined {
+    return lists.find((l) => l.id === id);
+}
 
 export const handlers = [
-    // GET /api/shopping-lists – přehled seznamů
-    http.get(`${API_BASE}/shopping-lists`, () => {
-        return HttpResponse.json(shoppingLists);
+    http.get("/api/shopping-lists", () => {
+        return HttpResponse.json(lists);
     }),
 
-    // GET /api/shopping-lists/:id – detail seznamu
-    http.get(`${API_BASE}/shopping-lists/:id`, ({ params }) => {
-        const id = Number(params.id);
-        const list = shoppingLists.find((l) => l.id === id);
-        if (!list) {
-            return new HttpResponse("Not found", { status: 404 });
-        }
-        return HttpResponse.json(list);
+    http.post("/api/shopping-lists", async ({ request }) => {
+        const body = (await request.json()) as any;
+        const name = String(body.name ?? "");
+        const ownerId = String(body.ownerId ?? "");
+
+        const newList: ShoppingListModel = {
+            id: `list-${Date.now()}`,
+            name,
+            ownerId,
+            archived: false,
+            memberIds: [],
+            items: [],
+        };
+
+        lists = [newList, ...lists];
+
+        return HttpResponse.json(newList, { status: 201 });
     }),
 
-    // POST /api/shopping-lists – založení seznamu { name }
-    http.post(`${API_BASE}/shopping-lists`, async ({ request }) => {
-        const body = (await request.json()) as { name: string };
-        const list = createShoppingList(body.name);
-        return HttpResponse.json(list, { status: 201 });
+    http.patch("/api/shopping-lists/:id", async ({ params, request }) => {
+        const { id } = params as { id: string };
+        const patch = (await request.json()) as Partial<ShoppingListModel>;
+
+        const existing = findList(id);
+        if (!existing) return new HttpResponse(null, { status: 404 });
+
+        const updated: ShoppingListModel = {
+            ...existing,
+            ...patch,
+        };
+
+        lists = lists.map((l) => (l.id === id ? updated : l));
+
+        return HttpResponse.json(updated);
     }),
 
-    // DELETE /api/shopping-lists/:id – smazání seznamu
-    http.delete(`${API_BASE}/shopping-lists/:id`, ({ params }) => {
-        const id = Number(params.id);
-        deleteShoppingList(id);
+    http.delete("/api/shopping-lists/:id", ({ params }) => {
+        const { id } = params as { id: string };
+        lists = lists.filter((l) => l.id !== id);
         return new HttpResponse(null, { status: 204 });
     }),
 
-    // POST /api/shopping-lists/:id/items – přidání položky { name }
-    http.post(`${API_BASE}/shopping-lists/:id/items`, async ({ params, request }) => {
-        const listId = Number(params.id);
-        const body = (await request.json()) as { name: string };
-        const item = addItem(listId, body.name);
-        if (!item) return new HttpResponse("List not found", { status: 404 });
-        return HttpResponse.json(item, { status: 201 });
+    http.post("/api/shopping-lists/:id/members", async ({ params, request }) => {
+        const { id } = params as { id: string };
+        const body = (await request.json()) as any;
+        const userId = String(body.userId ?? "");
+
+        const list = findList(id);
+        if (!list) return new HttpResponse(null, { status: 404 });
+
+        if (!list.memberIds.includes(userId)) {
+            list.memberIds = [...list.memberIds, userId];
+        }
+
+        lists = lists.map((l) => (l.id === id ? list : l));
+
+        return HttpResponse.json(list);
     }),
 
-    // PATCH /api/shopping-lists/:listId/items/:itemId – toggle done
-    http.patch(`${API_BASE}/shopping-lists/:listId/items/:itemId`, ({ params }) => {
-        const listId = Number(params.listId);
-        const itemId = Number(params.itemId);
-        const item = toggleItemDone(listId, itemId);
-        if (!item) return new HttpResponse("Not found", { status: 404 });
-        return HttpResponse.json(item);
-    })
+    http.delete("/api/shopping-lists/:id/members/:userId", ({ params }) => {
+        const { id, userId } = params as { id: string; userId: string };
+
+        const list = findList(id);
+        if (!list) return new HttpResponse(null, { status: 404 });
+
+        list.memberIds = list.memberIds.filter((m) => m !== userId);
+        lists = lists.map((l) => (l.id === id ? list : l));
+
+        return HttpResponse.json(list);
+    }),
+
+    http.post("/api/shopping-lists/:id/items", async ({ params, request }) => {
+        const { id } = params as { id: string };
+        const body = (await request.json()) as any;
+        const text = String(body.text ?? "");
+
+        const list = findList(id);
+        if (!list) return new HttpResponse(null, { status: 404 });
+
+        const newItem: ShoppingListItemModel = {
+            id: `item-${Date.now()}`,
+            text,
+            resolved: false,
+            addedBy: body.addedBy ?? "mock-user",
+        };
+
+        list.items = [...list.items, newItem];
+        lists = lists.map((l) => (l.id === id ? list : l));
+
+        return HttpResponse.json(list);
+    }),
+
+    http.patch("/api/shopping-lists/:id/items/:itemId/toggle", ({ params }) => {
+        const { id, itemId } = params as { id: string; itemId: string };
+
+        const list = findList(id);
+        if (!list) return new HttpResponse(null, { status: 404 });
+
+        list.items = list.items.map((item) =>
+            item.id === itemId ? { ...item, resolved: !item.resolved } : item
+        );
+        lists = lists.map((l) => (l.id === id ? list : l));
+
+        return HttpResponse.json(list);
+    }),
+
+    http.delete("/api/shopping-lists/:id/items/:itemId", ({ params }) => {
+        const { id, itemId } = params as { id: string; itemId: string };
+
+        const list = findList(id);
+        if (!list) return new HttpResponse(null, { status: 404 });
+
+        list.items = list.items.filter((item) => item.id !== itemId);
+        lists = lists.map((l) => (l.id === id ? list : l));
+
+        return HttpResponse.json(list);
+    }),
 ];

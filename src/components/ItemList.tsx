@@ -11,10 +11,17 @@ interface ItemListProps {
     list: ShoppingListModel | undefined;
     currentUser: User;
     allUsers: User[];
-    onUpdateList: (list: ShoppingListModel) => void;
+    onUpdateList: (listId:string,list: ShoppingListModel) => void;
 }
 
 export function ItemList({list, currentUser, allUsers, onUpdateList}: ItemListProps) {
+    if (!list) {
+        return (
+            <div className="p-4 text-gray-500">
+                Vyber nákupní seznam vlevo, aby se zobrazily položky.
+            </div>
+        );
+    }
     const [newItemText, setNewItemText] = useState('');
     const [showResolved, setShowResolved] = useState(false);
 
@@ -26,12 +33,12 @@ export function ItemList({list, currentUser, allUsers, onUpdateList}: ItemListPr
                 resolved: false,
                 addedBy: currentUser.id,
             };
-            onUpdateList({...list, items: [...list.items, newItem]});
+            onUpdateList(list.id,{...list, items: [...list.items, newItem]});
             setNewItemText('');
         }
     };
     const handleToggleItem = (itemId: string) => {
-        onUpdateList({
+        onUpdateList(list.id,{
             ...list,
             items: list.items.map(item =>
                 item.id === itemId ? {...item, resolved: !item.resolved} : item
@@ -39,15 +46,14 @@ export function ItemList({list, currentUser, allUsers, onUpdateList}: ItemListPr
         });
     };
     const handleRemoveItem = (itemId: string) => {
-        onUpdateList({
+        onUpdateList(list.id,{
             ...list,
             items: list.items.filter(item => item.id !== itemId),
         });
     };
-    const displayedItems = showResolved
-        ? list.items
-        : list.items.filter(item => !item.resolved);
-
+    const displayedItems = list.items
+        ? (showResolved ? list.items : list.items.filter(item => !item.resolved))
+        : [];
 
     return (
         <div>
@@ -120,7 +126,6 @@ export function ItemList({list, currentUser, allUsers, onUpdateList}: ItemListPr
                     })
                 )}
             </div>
-
             {list.items.length > 0 && (
                 <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                     <p className="text-sm text-gray-700">

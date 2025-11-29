@@ -18,12 +18,13 @@ import {
 import type { ShoppingListModel, User} from './mock-data';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "./ui/select";
 import {Avatar, AvatarFallback} from "./ui/avatar";
+import {addMemberToList} from "../api/shoppingLists";
 
 interface MemberListProps {
     list: ShoppingListModel | undefined;
     currentUser: User;
     allUsers: User[];
-    onUpdateList: (list: ShoppingListModel) => void;
+    onUpdateList: (listId: string,list: ShoppingListModel) => void;
     isOwner: boolean;
 }
 
@@ -37,25 +38,26 @@ export function MemberList({list, currentUser, allUsers, onUpdateList, isOwner}:
         return name.split(' ').map(n => n[0]).join('').toUpperCase();
     };
     const handleLeavelist = () => {
-        onUpdateList({
+        onUpdateList(list.id,{
             ...list,
             memberIds: list.memberIds.filter(id => id !== currentUser.id),
         });
     };
     const handleRemoveMember = (userId: string) => {
-        onUpdateList({
+        onUpdateList(list.id,{
             ...list,
             memberIds: list.memberIds.filter(id => id !== userId),
         });
     };
     const handleAddMember = () => {
         if (selectedUserId) {
-            onUpdateList({
+            onUpdateList(list.id,{
                 ...list,
                 memberIds: [...list.memberIds, selectedUserId],
             });
             setSelectedUserId('');
             setAddMemberDialogOpen(false);
+            addMemberToList(list.id, currentUser.id)
         }
     };
     const availableUsers = allUsers.filter(
