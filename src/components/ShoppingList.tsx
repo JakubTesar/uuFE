@@ -33,8 +33,14 @@ export function ShoppingList({
                                  onArchiveList,
                                  onDeleteList,
                              }: ShoppingListProps) {
+    if (!list) {
+        return null;
+    }
     const isOwner = list.ownerId === currentUser.id;
-    const unresolvedCount = list.items.filter(item => !item.resolved).length;
+    const unresolvedCount =
+        Array.isArray((list as any).items)
+            ? list.items.filter(item => !item.resolved).length
+            : (list as any).itemsRemaining ?? 0;
 
     return (
         <div

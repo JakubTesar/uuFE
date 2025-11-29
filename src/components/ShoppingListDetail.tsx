@@ -14,7 +14,7 @@ interface ShoppingListDetailProps {
     list: ShoppingListModel | undefined;
     currentUser: User;
     allUsers: User[];
-    onUpdateList: (list: ShoppingListModel) => void;
+    onUpdateList: (listId: string, list: ShoppingListModel) => void;
 }
 
 export function ShoppingListItem({
@@ -37,7 +37,7 @@ export function ShoppingListItem({
 
     const handleUpdateName = () => {
         if (editedName.trim() && editedName !== list.name) {
-            onUpdateList({...list, name: editedName.trim()});
+            onUpdateList(list.id,{...list, name: editedName.trim()});
         }
         setIsEditingName(false);
     };
